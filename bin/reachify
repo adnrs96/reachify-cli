@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Stable entry point for the `reachify` binary shipped inside this plugin.
+#
+# Skills/commands should ALWAYS call this wrapper (never a bare `reachify` on
+# PATH and never a platform path directly):
+#
+#     "${CLAUDE_PLUGIN_ROOT}/bin/reachify" get-job
+#
+# It resolves the plugin root, detects the host OS/arch, and execs the matching
+# bundled binary under bin/<os>-<arch>/reachify. If this host's platform isn't
+# bundled, it falls back to a `reachify` already on PATH; otherwise it fails
+# loudly with the exact platform that's missing.
+set -euo pipefail
+
+# Plugin root: prefer the env var Claude Code injects; else derive from $0.
+ROOT="${CLAUDE_PLUGIN_ROOT:-"$(cd "$(dirname "$0")/.." && pwd)"}"
+
+os="$(uname -s)"
+arch="$(uname -m)"
+case "$os" in
+  Darwin) os=darwin ;;
+  Linux)  os=linux ;;
+  *)      os="$(printf '%s' "$os" | tr '[:upper:]' '[:lower:]')" ;;
+esac
+case "$arch" in
+  arm64|aarch64) arch=arm64 ;;
+  x86_64|amd64)  arch=x64 ;;
+esac
+
+bundled="$ROOT/bin/$os-$arch/reachify"
+if [ -x "$bundled" ]; then
+  exec "$bundled" "$@"
+fi
+
+# Not bundled for this platform — fall back to a system install if present.
+if command -v reachify >/dev/null 2>&1; then
+  exec reachify "$@"
+fi
+
+echo "reachify: no bundled binary for $os-$arch at $bundled," >&2
+echo "          and no 'reachify' found on PATH. Build one with" >&2
+echo "          scripts/build-binary.sh on a $os-$arch host." >&2
+exit 127
