@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "reachify-cli"
-version = "0.0.1"
+dynamic = ["version"]
 description = "Reachify CLI — talk to the Reachify backend, retrieve/post data, and materialize backend-instructed files."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -23,6 +23,12 @@ dev = [
 
 [project.scripts]
 reachify = "reachify.cli:_entry"
+
+# Single source of truth for the version: read __version__ from the package.
+# Bump it in src/reachify/__init__.py only — pyproject, the build, and the
+# published wheel all derive from there.
+[tool.hatch.version]
+path = "src/reachify/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/reachify"]

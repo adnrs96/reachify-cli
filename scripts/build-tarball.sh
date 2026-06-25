@@ -32,8 +32,20 @@ OUT_DIR="${OUT_DIR:-dist}"
 
 command -v uv >/dev/null 2>&1 || { echo "error: uv not found (https://docs.astral.sh/uv/)" >&2; exit 1; }
 
+# __version__ in the package is the single source of truth. pyproject.toml reads
+# it via hatch's dynamic version (no literal to keep in sync), and the published
+# wheel derives from the same line.
 VERSION="$(grep -E '^__version__' src/reachify/__init__.py | head -1 | sed -E 's/.*"([^"]+)".*/\1/')"
 [ -n "$VERSION" ] || { echo "error: could not read __version__" >&2; exit 1; }
+
+# When the caller declares an expected version (CI passes the release tag minus
+# its leading 'v'), the source must match it — otherwise the asset name won't
+# line up with the release URL and the installer would 404.
+if [ -n "${EXPECT_VERSION:-}" ] && [ "$EXPECT_VERSION" != "$VERSION" ]; then
+  echo "error: version mismatch — building $VERSION but tag/EXPECT_VERSION=$EXPECT_VERSION" >&2
+  echo "       bump __version__ (and pyproject.toml) to $EXPECT_VERSION, or fix the tag." >&2
+  exit 1
+fi
 
 # Normalize host platform to the names the hook will compute from `uname`.
 os="$(uname -s)"; arch="$(uname -m)"

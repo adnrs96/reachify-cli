@@ -34,7 +34,13 @@ jobs:
       - uses: astral-sh/setup-uv@v5
 
       - name: Build tarball
-        run: bash scripts/build-tarball.sh
+        # On a tag push, require the source version to match the tag (minus 'v').
+        # Manual runs (no tag) skip the check and build whatever __version__ says.
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            export EXPECT_VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          bash scripts/build-tarball.sh
 
       - uses: actions/upload-artifact@v4
         with:
