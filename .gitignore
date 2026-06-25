@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+.venv-build/
+venv/
+env/
+
+# Tooling
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# OS / editor
+.DS_Store
+*.log
+.env
+
+# Local scratch / unrelated artifacts (not part of the build tooling)
+/Archive.zip
+/test.txt
+/.claude/
