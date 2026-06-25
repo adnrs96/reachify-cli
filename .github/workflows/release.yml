@@ -23,7 +23,7 @@ jobs:
       matrix:
         include:
           - os: macos-14         # Apple Silicon  -> darwin-arm64
-          - os: macos-13         # Intel          -> darwin-x64
+          - os: macos-15-intel   # Intel          -> darwin-x64  (macos-13 retired)
           - os: ubuntu-22.04     # Linux x86_64   -> linux-x64
           - os: ubuntu-22.04-arm # Linux arm64    -> linux-arm64
     runs-on: ${{ matrix.os }}
