@@ -41,11 +41,10 @@ class ReachifyClient:
     @staticmethod
     def _auth_headers(profile: Profile) -> dict[str, str]:
         # The Velorify API authenticates judgement-job workers via the
-        # ``richefy-api-at`` access-token header. Bearer is kept for the
+        # ``richefy-worker-at`` access-token header. Bearer is kept for the
         # auth-protected endpoints that use it.
         return {
-            "richefy-api-at": profile.identity_token,
-            "Authorization": f"Bearer {profile.identity_token}",
+            "richefy-worker-at": profile.identity_token,
             "X-Reachify-Id": profile.id,
             "Accept": "application/json",
         }
