@@ -53,11 +53,14 @@ class MaterializedFile:
 
 @dataclass
 class JobWorkspace:
-    """Negotiated filesystem locations for a job on the worker machine."""
+    """Negotiated filesystem locations for a job on the worker machine.
+
+    Mirrors ``JobWorkspace`` in the API — ``work_dir`` and ``out_dir`` only. The
+    answer location is no longer here; it moved to :class:`JobOutput`.
+    """
 
     work_dir: str
     out_dir: str
-    answer_path: str
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "JobWorkspace":
@@ -66,7 +69,31 @@ class JobWorkspace:
         return cls(
             work_dir=str(data.get("work_dir") or ""),
             out_dir=str(data.get("out_dir") or ""),
-            answer_path=str(data.get("answer_path") or ""),
+        )
+
+
+@dataclass
+class JobOutput:
+    """Where the worker must Write its answer (``JobOutputOut``).
+
+    ``path`` is the negotiated answer location the prompt's Write tool call
+    targets (named by the job id). ``complete-job`` reads the answer from here.
+    """
+
+    id: str | None = None
+    path: str | None = None
+    role: str | None = None
+    content_type: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any] | None) -> "JobOutput | None":
+        if not isinstance(data, dict):
+            return None
+        return cls(
+            id=data.get("id"),
+            path=data.get("path"),
+            role=data.get("role"),
+            content_type=data.get("content_type"),
         )
 
 
@@ -74,16 +101,19 @@ class JobWorkspace:
 class JobAsset:
     """An asset served with a job (``JobAssetOut``).
 
-    ``path`` is where the CLI must create the file (and what the prompt
-    references via ``${asset:<ref>}``). Exactly one of ``content`` (inline) or
-    ``bucket_path`` (+ short-lived ``signed_url``) carries the bytes.
+    The file is identified solely by ``path`` (named by its opaque ``id``) —
+    the API no longer returns a filename or label. ``path`` is where the CLI
+    must create the file, and what the prompt's Read tool call references.
+    Exactly one of ``content`` (inline) or ``bucket_path`` (+ short-lived
+    ``signed_url``) carries the bytes.
 
     Every field is optional and read defensively: the backend is free to add,
     rename, or drop fields without breaking parsing. The full server payload is
     kept in :attr:`raw`.
     """
 
-    filename: str | None = None
+    id: str | None = None
+    role: str | None = None
     ref: str | None = None
     path: str | None = None
     content: str | None = None
@@ -96,8 +126,9 @@ class JobAsset:
     @classmethod
     def from_dict(cls, data: dict[str, Any], ref: str | None = None) -> "JobAsset":
         return cls(
-            filename=data.get("filename"),
-            ref=data.get("ref") or ref,
+            id=data.get("id"),
+            role=data.get("role"),
+            ref=ref,
             path=data.get("path"),
             content=data.get("content"),
             bucket_path=data.get("bucket_path"),
@@ -109,8 +140,12 @@ class JobAsset:
 
     @property
     def local_name(self) -> str:
-        """A usable filename even if the backend omitted ``filename``."""
-        return self.filename or self.ref or "asset"
+        """A usable filename for fallbacks, since the API omits a filename.
+
+        Prefer the explicit ``path`` elsewhere; this is only a last-resort name
+        derived from the asset's map key or opaque id.
+        """
+        return self.ref or self.id or "asset"
 
 
 @dataclass
@@ -128,6 +163,7 @@ class Job:
     anchor_id: str | None
     definition_key: str | None
     workspace: JobWorkspace
+    output: JobOutput | None
     assets: dict[str, JobAsset]
     raw: dict[str, Any]
 
@@ -148,6 +184,7 @@ class Job:
             anchor_id=data.get("anchor_id"),
             definition_key=data.get("definition_key"),
             workspace=JobWorkspace.from_dict(data.get("workspace") or {}),
+            output=JobOutput.from_dict(data.get("output")),
             assets=assets,
             raw=data,
         )

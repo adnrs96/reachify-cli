@@ -101,7 +101,13 @@ class JobsClient:
         }
         params = {k: v for k, v in params.items() if v is not None}
         body = self._c.request_json("GET", _JOBS, params=params)
-        return [Job.from_dict(item) for item in (body or [])]
+        # The API returns the house Page envelope ({items,total,limit,offset});
+        # a worker only reads ``items``. Tolerate a bare list too (older shape).
+        if isinstance(body, dict):
+            items = body.get("items") or []
+        else:
+            items = body or []
+        return [Job.from_dict(item) for item in items]
 
     def get_job(self, job_id: str) -> Job:
         body = self._c.request_json("GET", f"{_JOBS}/{job_id}")
@@ -169,12 +175,12 @@ def work_dir_for(job: Job) -> Path:
 def answer_path_for(job: Job) -> Path:
     """Where the agent writes its judgement.
 
-    Prefer the backend's explicit ``answer_path``; otherwise use the convention
-    ``<out_dir or work_dir/out>/<job_id>.json``.
+    Prefer the backend's negotiated output location (``job.output.path``);
+    otherwise fall back to the convention ``<out_dir or work_dir/out>/<job_id>.json``.
     """
+    if job.output and job.output.path:
+        return Path(job.output.path)
     ws = job.workspace
-    if ws.answer_path:
-        return Path(ws.answer_path)
     out_dir = Path(ws.out_dir) if ws.out_dir else work_dir_for(job) / "out"
     return out_dir / f"{_safe_id(job.id or '')}.json"
 
@@ -200,7 +206,7 @@ def prepare_job(job: Job) -> PreparedJob:
 
     agent_file = work_dir / agent_file_name(job.id or "")
     agent_file.parent.mkdir(parents=True, exist_ok=True)
-    agent_file.write_text(job.prompt, encoding="utf-8")
+    agent_file.write_text(job.prompt or "", encoding="utf-8")
 
     answer_path = answer_path_for(job)
 
